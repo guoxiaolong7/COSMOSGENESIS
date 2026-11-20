@@ -1,11 +1,110 @@
-<div align="center">
+# COSMOS GENESIS — 宇宙大爆炸与时空演化演示
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+基于 **Three.js + WebGL2 + GLSL 自定义着色器** 构建的交互式 3D 宇宙演化可视化演示，呈现从普朗克量子涨落到当代宇宙大尺度纤维网的 **138 亿年时空演化历程**。
 
-  <h1>Built with AI Studio</h2>
+项目全部视觉元素（粒子场、声学振荡球壳、CMB 温度涨落壳层、暗物质势阱丝带、旋涡星系盘与共动晶格）均由程序化算法与 GLSL 着色器实时生成，**零外部模型、零外部贴图、零音频依赖**。
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+---
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## 核心特性
 
-</div>
+- **空间度规膨胀表达**：通过共动参考晶格（Comoving Spacetime Lattice）与视觉尺度因子 $a_{\text{vis}}(p)$ 展现“空间自身膨胀”，而非传统炸弹式向外抛射。
+- **6 大宇宙纪元连续平滑过渡**：使用归一化非线性时间轴 `progress ∈ [0, 1]` 驱动跨越 60 余个数量级时间跨度的平滑插值与形态转换。
+- **双渲染路径与性能优化**：
+  - 桌面端粒子预算 `20,000`，移动端自动降至 `7,000`。
+  - 预分配 `Float32Array` 缓冲区、`45ms` 节流零 GC 射线拾取，以及针对软件 WebGL 的渲染保护与完整 GPU 资源回收。
+- **交互探索体验**：
+  - 支持鼠标拖拽旋转与滚轮缩放（`OrbitControls` 阻尼控制，安全视距 `[4.5, 68]` 防止穿入奇点）。
+  - **全景巡航 / 自由观察** 双相机模式，用户一旦手动拖拽即自动让位给自由视角。
+  - **天体观测标注**：悬停或点击 3D 锚点及快速观测芯片，可查看量子涨落、暴胀种子、BAO 声学波峰、CMB 起伏、Pop III 恒星与星系团科普解析。
+- **双交付形态**：
+  - 完整工程版：React 19 + TypeScript + Vite + Tailwind CSS v4。
+  - 单文件独立运行版：[`public/cosmos-genesis.html`](public/cosmos-genesis.html)（通过 ESM Import Map 引入 Three.js，可直接部署或离线配合 CDN 打开）。
+
+---
+
+## 6 大宇宙纪元与视觉转译
+
+| 纪元 | 名称 | 物理时间 | 估算温度 | 视觉与物理近似策略 |
+| :--- | :--- | :--- | :--- | :--- |
+| **01** | 量子涨落与极早期高能态 | `10⁻⁴³ s – 10⁻³⁶ s` | `≳ 10³² K → 10²⁸ K` | 致密高亮核心 + GLSL 高频三维随机位移场近似量子泡沫涨落 |
+| **02** | 指数级暴胀与密度种子 | `10⁻³⁶ s – 10⁻³² s` | `10²⁷ K → 10²⁵ K` | 将 $e^{60}$ 倍指数暴胀压缩为平滑对数膨胀，冻结原初密度扰动种子 |
+| **03** | 夸克汤 / 太初核合成炽热雾 | `10⁻⁶ s – 20 min` | `10¹² K → 10⁹ K` | 炽热金橙粒子流体 + 球面重子声学振荡（BAO）压缩波纹壳层 |
+| **04** | 38 万年复合与 CMB 光子释放 | `≈ 380,000 yr` | `≈ 3,000 K` | 放大 $\Delta T / T \sim 10^{-5}$ 起伏对比度，以红暖/蓝冷 3D fBm 球壳呈现 |
+| **05** | 黑暗时代与第一代恒星点亮 | `380 kyr – 400 Myr` | `3,000 K → 60 K` | 微弱暗紫色势阱丝带标示暗物质框架，点亮第三星族（Pop III）蓝白星光 |
+| **06** | 宇宙网、星系团与暗能量加速膨胀 | `1 Gyr – 13.8 Gyr` | `→ 2.725 K` | 22 节点纤维宇宙网与三维倾斜双旋臂星系盘，体现局部引力退耦与团际加速膨胀 |
+
+> **科学近似说明**：真实宇宙学演化的尺度跨度、光学厚度与不可见暗物质无法在实时 WebGL 中按 1:1 物理单位绘制，HUD 卡片与上表均明确标注了视觉近似范围。
+
+---
+
+## 交互与快捷键
+
+| 操作 / 快捷键 | 功能说明 |
+| :--- | :--- |
+| 鼠标左键拖拽 / 滚轮 | 旋转观测视角 / 缩放视距（自动切入“自由观察”模式） |
+| 悬停或点击 3D 天体圆环 | 高亮目标天体并弹出科普解析卡片 |
+| `Space` | 播放 / 暂停宇宙演化 |
+| `R` | 重置演化进度至起点并恢复播放 |
+| `1` – `6` | 快速跳转至第 1 至第 6 宇宙纪元锚点 |
+| `C` | 切换“全景巡航”与“自由观察”相机模式 |
+| `H` | 收起 / 展开底部控制栏与扩展说明 |
+| `Esc` | 关闭当前固定的天体科普提示卡片 |
+
+---
+
+## 本地开发与运行
+
+### 环境要求
+
+- Node.js `>= 20`
+- npm / bun
+
+### 安装与启动
+
+```bash
+# 1. 安装依赖
+npm install
+
+# 2. 启动本地开发服务器（默认监听端口 3000）
+npm run dev
+```
+
+启动后在浏览器访问 `http://localhost:3000` 查看完整 React 工程版，或访问 `http://localhost:3000/cosmos-genesis.html` 体验单文件独立版。
+
+### 测试与构建验证
+
+```bash
+# 运行宇宙学参数与粒子缓冲边界单元测试
+npx tsx --test src/cosmos/epochs.test.ts
+
+# TypeScript 类型检查
+npm run lint
+
+# 构建生产版本
+npm run build
+```
+
+---
+
+## 项目结构
+
+```text
+.
+├── index.html                  # Vite 应用入口页
+├── public/
+│   ├── cosmos-genesis.html     # Stage 4 终版单文件 HTML 成品（零外部构建依赖）
+│   └── cosmos-genesis-stage2.html
+├── src/
+│   ├── App.tsx                 # 状态编排与键盘快捷键绑定
+│   ├── components/
+│   │   └── CosmosHud.tsx       # 纪元信息卡、物理遥测表、天体科普卡与时间轴底座
+│   └── cosmos/
+│       ├── epochs.ts           # 6 大纪元元数据、分段对数遥测与权重平滑算法
+│       ├── hotspots.ts         # 天体观测热点配置、着色器参数与巡航相机轨迹
+│       ├── particleData.ts     # 确定性多纪元 Float32Array 粒子与星系盘生成器
+│       ├── CosmosStage.tsx     # Three.js 场景、GLSL 着色器、UnrealBloom 与射线拾取
+│       └── epochs.test.ts      # 单元测试
+├── package.json
+└── vite.config.ts
+```

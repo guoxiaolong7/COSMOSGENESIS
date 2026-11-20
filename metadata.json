@@ -1,0 +1,6 @@
+{
+  "name": "COSMOS GENESIS — 宇宙大爆炸与时空演化演示",
+  "description": "交互式 3D 宇宙演化科学可视化演示：从量子涨落、暴胀、太初核合成、CMB 光子释放、第一代恒星到宇宙网与暗能量加速膨胀。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,953 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>COSMOS GENESIS — 宇宙大爆炸与时空演化演示</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body {
+        width: 100%; height: 100%; overflow: hidden;
+        background: #03050c; color: #f1f5f9;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+        user-select: none;
+      }
+      #canvas-wrap { position: fixed; inset: 0; cursor: grab; }
+      #canvas-wrap.pointer { cursor: pointer; }
+      #canvas-wrap:active { cursor: grabbing; }
+      .hud {
+        position: fixed; inset: 0; z-index: 10; pointer-events: none;
+        display: flex; flex-direction: column; justify-content: space-between;
+        padding: 16px; gap: 10px;
+      }
+      .card {
+        pointer-events: auto;
+        background: rgba(7, 11, 21, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      }
+      .info-card { max-width: 510px; padding: 14px 16px; }
+      .row-between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .brand { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: #7dd3fc; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+      .title { font-size: 17px; font-weight: 600; margin-top: 4px; color: #f8fafc; line-height: 1.35; }
+      .subtitle { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+      .metrics {
+        display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;
+        margin-top: 10px; padding: 8px 0;
+        border-top: 1px solid rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.1);
+      }
+      .metric-label { font-size: 11px; color: #94a3b8; }
+      .metric-val { font-size: 12px; font-weight: 500; margin-top: 2px; white-space: nowrap; }
+      .summary { font-size: 12.5px; line-height: 1.55; color: #cbd5e1; margin-top: 8px; }
+      .approx { font-size: 11px; line-height: 1.45; color: #94a3b8; margin-top: 4px; }
+      .hotspot-chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+      .dock-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
+      .hotspot-card { width: 100%; max-width: 600px; padding: 12px 14px; border-color: rgba(56, 189, 248, 0.35); display: none; }
+      .hotspot-card.visible { display: block; }
+      .collapse-btn {
+        border-bottom: none; border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+        padding: 5px 12px; font-size: 12px; background: rgba(7, 11, 21, 0.9);
+      }
+      .dock { width: 100%; max-width: 960px; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+      .dock.hidden { display: none; }
+      .anchors { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+      button {
+        cursor: pointer; border: 1px solid rgba(255,255,255,0.1);
+        background: rgba(255,255,255,0.04); color: #cbd5e1;
+        border-radius: 8px; padding: 7px 8px; font-size: 12px; font-weight: 500;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      button:hover { background: rgba(255,255,255,0.1); color: #fff; }
+      button.active { background: rgba(56, 189, 248, 0.2); border-color: rgba(56, 189, 248, 0.6); color: #e0f2fe; }
+      button.amber-active { background: rgba(245, 158, 11, 0.18); border-color: rgba(245, 158, 11, 0.65); color: #fef3c7; }
+      button.primary { background: #38bdf8; border-color: #38bdf8; color: #020617; font-weight: 600; padding: 7px 14px; }
+      button.primary:hover { background: #7dd3fc; }
+      .slider-row { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #94a3b8; }
+      input[type="range"] { flex: 1; accent-color: #38bdf8; cursor: pointer; height: 6px; }
+      .controls-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+      .btn-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+      .status-overlay {
+        position: fixed; inset: 0; z-index: 30; display: none;
+        align-items: center; justify-content: center; padding: 24px;
+        background: rgba(3, 5, 12, 0.88);
+      }
+      .status-overlay.visible { display: flex; }
+      @media (max-width: 640px) {
+        .hud { padding: 10px; gap: 8px; }
+        .info-card { padding: 10px 12px; }
+        .title { font-size: 14px; }
+        .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; margin-top: 8px; padding: 6px 0; }
+        .summary { font-size: 11.5px; line-height: 1.45; margin-top: 6px; }
+        .approx { display: none; }
+        .dock { padding: 10px 12px; gap: 8px; }
+        .anchors { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        button { padding: 6px 6px; font-size: 11.5px; }
+      }
+      @media (max-height: 680px) {
+        .approx { display: none; }
+        .info-card { max-height: 44vh; overflow-y: auto; }
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.174.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.174.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="canvas-wrap"></div>
+    <div class="status-overlay" id="status-overlay">
+      <div class="card" style="max-width:420px;padding:18px;text-align:center">
+        <div class="title" id="status-title">WebGL 上下文已暂停</div>
+        <p class="summary" id="status-desc">正在尝试恢复渲染…</p>
+      </div>
+    </div>
+
+    <div class="hud">
+      <header class="card info-card">
+        <div class="row-between">
+          <span class="brand">COSMOS GENESIS</span>
+          <span class="mono" style="font-size:12px;color:#94a3b8" id="hud-step">纪元 01 / 06</span>
+        </div>
+        <h1 class="title" id="hud-title">量子涨落与极早期高能态</h1>
+        <p class="subtitle" id="hud-en">Quantum Fluctuations &amp; Planck Era</p>
+        <div class="metrics">
+          <div><div class="metric-label">物理时间</div><div class="metric-val mono" id="hud-time">t ≈ 10^-43 s</div></div>
+          <div><div class="metric-label">估算温度</div><div class="metric-val mono" style="color:#fcd34d" id="hud-temp">T ≈ 10^32 K</div></div>
+          <div><div class="metric-label">宇宙红移</div><div class="metric-val mono" style="color:#a5b4fc" id="hud-z">z ≫ 10⁹</div></div>
+          <div><div class="metric-label">尺度倍率</div><div class="metric-val mono" style="color:#7dd3fc" id="hud-scale">a ≈ 0.18</div></div>
+        </div>
+        <div id="info-extra">
+          <p class="summary" id="hud-summary"></p>
+          <p class="approx" id="hud-approx"></p>
+          <div class="hotspot-chip-row" id="hotspot-chips"></div>
+        </div>
+      </header>
+
+      <div class="dock-wrap">
+        <aside class="card hotspot-card" id="hotspot-card">
+          <div class="row-between">
+            <div>
+              <div style="font-size:11px;color:#7dd3fc" id="hs-cat"></div>
+              <h2 style="font-size:14px;font-weight:600;margin-top:2px" id="hs-title"></h2>
+            </div>
+            <button id="hs-close" style="padding:4px 8px;display:none">关闭</button>
+          </div>
+          <p class="summary" id="hs-desc" style="margin-top:6px"></p>
+        </aside>
+
+        <div style="display:flex;flex-direction:column;align-items:center;width:100%">
+          <button id="btn-collapse" class="collapse-btn" aria-expanded="true">收起控制栏</button>
+          <section class="card dock" id="dock-panel">
+            <div class="anchors" id="epoch-anchors"></div>
+            <div class="slider-row">
+              <span>演化进度</span>
+              <input type="range" id="timeline-slider" min="0" max="1" step="0.001" value="0" />
+              <span class="mono" id="hud-pct" style="width:48px;text-align:right;color:#e2e8f0">0.0%</span>
+            </div>
+            <div class="controls-row">
+              <div class="btn-group">
+                <button class="primary" id="btn-play">暂停演化</button>
+                <button id="btn-reset">重置演化</button>
+              </div>
+              <div class="btn-group">
+                <button class="active" id="btn-cruise">全景巡航</button>
+                <button id="btn-free">自由观察</button>
+                <button class="amber-active" id="btn-hotspots">天体标注</button>
+                <button class="active" id="btn-grid">共动网格</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+      import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+      import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+      import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+      const EPOCHS = [
+        { id: 1, short: '01 量子涨落', title: '量子涨落与极早期高能态', en: 'Quantum Fluctuations & Planck Era', range: [0.0, 0.12], anchor: 0.05, summary: '时空曲率与能量密度达到普朗克与大统一能标，基本相互作用尚未完全分离，真空零点涨落在微观尺度剧烈起伏。', approx: '视觉近似：真实量子引力尚无经典粒子轨迹，此处以高频随机位移场近似量子泡沫涨落。' },
+        { id: 2, short: '02 暴胀种子', title: '指数级暴胀与密度种子', en: 'Cosmic Inflation & Primordial Seeds', range: [0.12, 0.26], anchor: 0.19, summary: '暴胀子场驱动空间度规呈指数级拉伸，将微观量子涨落冻结并放大为日后星系诞生的原初密度扰动种子。', approx: '视觉近似：将 e⁶⁰ 倍真实暴胀尺度压缩为平滑对数膨胀，并通过共动晶格拉伸体现空间度量增长。' },
+        { id: 3, short: '03 太初炽雾', title: '夸克汤 / 太初核合成炽热雾', en: 'Quark-Gluon Plasma & BBN', range: [0.26, 0.44], anchor: 0.35, summary: '夸克与胶子强子化形成质子与中子并合成氢、氦-4 等轻元素；光子被自由电子频繁散射形成炽热等离子体雾。', approx: '视觉近似：以光学厚炽热金橙色粒子雾与声学球面波纹近似光子-重子耦合流体。' },
+        { id: 4, short: '04 复合CMB', title: '38 万年复合与 CMB 光子释放', en: 'Recombination & CMB Decoupling', range: [0.44, 0.62], anchor: 0.53, summary: '宇宙冷却至约 3000 K，中性氢原子形成，光子退耦自由穿行并留下宇宙微波背景（CMB）最后散射面印记。', approx: '视觉近似：将十万分之一量级 CMB 温度起伏对比度放大，以红暖/蓝冷伪彩球壳呈现。' },
+        { id: 5, short: '05 第一代星', title: '黑暗时代与第一代恒星点亮', en: 'Dark Ages & Cosmic Dawn (Pop III)', range: [0.62, 0.8], anchor: 0.71, summary: '背景辐射红移进入黑暗时代；重子气体沿暗物质引力势阱坍缩，点燃炙热短寿的第三星族（Pop III）第一代恒星。', approx: '视觉近似：真实暗物质不可见，以微弱暗紫色势阱丝带标示重子气体坍缩路径。' },
+        { id: 6, short: '06 宇宙网', title: '宇宙网、星系团与暗能量加速膨胀', en: 'Cosmic Web & Dark Energy Acceleration', range: [0.8, 1.0], anchor: 0.9, summary: '星系团内部引力束缚态已脱离哈勃膨胀，而团际巨大空洞在暗能量主导下持续加速扩张。', approx: '视觉近似：以程序化纤维节点场与螺旋星系盘近似 N 体引力坍缩结构。' },
+      ];
+
+      const HOTSPOTS = [
+        { id: 'quantum-foam', epochId: 1, title: '量子真空零点涨落', cat: '普朗克 / 大统一能标 · ΔE·Δt ~ ħ', desc: '不确定性原理驱动能量密度在微观尺度剧烈起伏，构成后续宇宙大尺度结构的最初源头。', pos: [0.6, 0.4, 0.8], scaleMetric: false, hex: '#e0f2fe' },
+        { id: 'inflation-seed', epochId: 2, title: '暴胀原初密度扰动种子', cat: '尺度不变高斯涨落 · nₛ ≈ 0.965', desc: '指数级暴胀将亚原子量子涨落拉伸至超越哈勃视界并冻结为长程关联的密度高低起伏。', pos: [3.2, 1.8, -2.4], scaleMetric: true, hex: '#38bdf8' },
+        { id: 'bao-wave', epochId: 3, title: '重子声学振荡波峰 (BAO)', cat: '光子-重子耦合流体 · cₛ ≈ c / √3', desc: '辐射压与引力相互角力，在炽热等离子体雾中激发出以近三分之一光速传播的球面声学压缩波纹。', pos: [-4.6, 1.2, 3.8], scaleMetric: true, hex: '#fb923c' },
+        { id: 'cmb-hotspot', epochId: 4, title: 'CMB 最后散射面温度起伏', cat: '宇宙微波背景遗迹 · ΔT / T ~ 10⁻⁵', desc: '中性氢复合瞬间光子退耦，球壳暖斑对应原始势阱过密区，冷斑对应欠密区。', pos: [7.8, 3.6, -5.2], scaleMetric: true, hex: '#f59e0b' },
+        { id: 'pop3-star', epochId: 5, title: '第三星族第一代恒星 (Pop III)', cat: '宇宙黎明 · 零金属丰度 · M ~ 100 M☉', desc: '原始氢氦气体沿暗物质丝状势阱坍缩，点燃炙热蓝白色第一代恒星并开启宇宙再电离。', pos: [-5.8, -2.4, -4.2], scaleMetric: true, hex: '#93c5fd' },
+        { id: 'cosmic-cluster', epochId: 6, title: '星系团节点与旋涡星系群', cat: '引力束缚退耦 · H₀ ≈ 67.4 km/s/Mpc', desc: '星系团内部已达维里平衡并脱离哈勃膨胀，团际空洞则在暗能量主导下加速扩张。', pos: [6.4, -1.8, 5.4], scaleMetric: true, hex: '#a5b4fc' },
+      ];
+
+      const isMobile = window.innerWidth < 768 || (navigator.maxTouchPoints > 0 && window.innerWidth < 1024);
+      const PARTICLE_COUNT = isMobile ? 7000 : 20000;
+      const clamp01 = (v) => (Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0);
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const smoothstep = (e0, e1, x) => { const t = clamp01((x - e0) / (e1 - e0)); return t * t * (3 - 2 * t); };
+
+      function getEpochForProgress(p) {
+        const cp = clamp01(p);
+        return EPOCHS.find((e, i) => cp >= e.range[0] && (cp < e.range[1] || i === 5)) || EPOCHS[0];
+      }
+
+      function getEpochWeights(p) {
+        const cp = clamp01(p);
+        const w = [0, 0, 0, 0, 0, 0];
+        let s = 0;
+        for (let i = 0; i < 6; i++) {
+          const [a, b] = EPOCHS[i].range;
+          const enter = i === 0 ? 1 : smoothstep(a - 0.035, a + 0.035, cp);
+          const exit = i === 5 ? 1 : 1 - smoothstep(b - 0.035, b + 0.035, cp);
+          w[i] = Math.max(0, enter * exit);
+          s += w[i];
+        }
+        return s > 1e-6 ? w.map((v) => v / s) : [1, 0, 0, 0, 0, 0];
+      }
+
+      function computeTelemetry(p) {
+        const cp = clamp01(p);
+        const epoch = getEpochForProgress(cp);
+
+        let logSec = -43;
+        if (cp < 0.12) logSec = lerp(-43, -36, cp / 0.12);
+        else if (cp < 0.26) logSec = lerp(-36, -32, (cp - 0.12) / 0.14);
+        else if (cp < 0.44) logSec = lerp(-6, Math.log10(1200), (cp - 0.26) / 0.18);
+        else if (cp < 0.53) logSec = lerp(Math.log10(1200), 13.079, smoothstep(0.44, 0.53, cp));
+        else if (cp < 0.62) logSec = lerp(13.079, 13.58, (cp - 0.53) / 0.09);
+        else if (cp < 0.8) logSec = lerp(13.58, 16.1, (cp - 0.62) / 0.18);
+        else logSec = lerp(16.1, 17.638, (cp - 0.8) / 0.2);
+
+        const sec = Math.pow(10, logSec);
+        const yr = 3.15576e7;
+        let timeLabel;
+        if (logSec < -3) timeLabel = `t ≈ 10^${Math.round(logSec)} s`;
+        else if (sec < 120) timeLabel = `t ≈ ${sec.toFixed(1)} s`;
+        else if (sec < 3600) timeLabel = `t ≈ ${(sec / 60).toFixed(1)} min`;
+        else if (sec < yr * 1000) {
+          const y = sec / yr;
+          timeLabel = y < 1 ? `t ≈ ${(sec / 86400).toFixed(0)} d` : `t ≈ ${y.toFixed(0)} yr`;
+        } else if (sec < yr * 1e6) timeLabel = `t ≈ ${(sec / (yr * 1e3)).toFixed(0)} kyr`;
+        else if (sec < yr * 1e9) timeLabel = `t ≈ ${(sec / (yr * 1e6)).toFixed(0)} Myr`;
+        else timeLabel = `t ≈ ${(sec / (yr * 1e9)).toFixed(2)} Gyr`;
+
+        let logTemp = 32;
+        if (cp < 0.12) logTemp = lerp(32, 28, cp / 0.12);
+        else if (cp < 0.26) logTemp = lerp(27.5, 25, (cp - 0.12) / 0.14);
+        else if (cp < 0.44) logTemp = lerp(12, 9, (cp - 0.26) / 0.18);
+        else if (cp < 0.53) logTemp = lerp(9, Math.log10(3000), smoothstep(0.44, 0.53, cp));
+        else if (cp < 0.62) logTemp = lerp(Math.log10(3000), Math.log10(2000), (cp - 0.53) / 0.09);
+        else if (cp < 0.8) logTemp = lerp(Math.log10(2000), Math.log10(60), (cp - 0.62) / 0.18);
+        else logTemp = lerp(Math.log10(60), Math.log10(2.725), (cp - 0.8) / 0.2);
+
+        let tempLabel;
+        if (logTemp >= 5.5) tempLabel = `T ≈ 10^${Math.round(logTemp)} K`;
+        else {
+          const kelvin = Math.pow(10, logTemp);
+          tempLabel = kelvin >= 100 ? `T ≈ ${Math.round(kelvin).toLocaleString('en-US')} K` : `T ≈ ${kelvin.toFixed(2)} K`;
+        }
+
+        let redshiftLabel = 'z ≫ 10⁹';
+        if (cp >= 0.44 && cp < 0.62) redshiftLabel = `z ≈ ${Math.round(lerp(1100, 1050, (cp - 0.44) / 0.18))}`;
+        else if (cp >= 0.62 && cp < 0.8) redshiftLabel = `z ≈ ${lerp(1050, 12, (cp - 0.62) / 0.18).toFixed(0)}`;
+        else if (cp >= 0.8) redshiftLabel = `z ≈ ${lerp(12, 0, smoothstep(0.8, 1.0, cp)).toFixed(2)}`;
+        else if (cp >= 0.26) redshiftLabel = 'z > 10⁸';
+
+        const scale =
+          0.18 +
+          0.72 * smoothstep(0.1, 0.28, cp) +
+          0.55 * smoothstep(0.26, 0.62, cp) +
+          0.45 * smoothstep(0.62, 0.82, cp) +
+          0.58 * Math.pow(smoothstep(0.8, 1.0, cp), 1.35);
+
+        return { epoch, timeLabel, tempLabel, redshiftLabel, scale };
+      }
+
+      function detectSoftwareWebGL() {
+        try {
+          const probe = document.createElement('canvas');
+          const gl = probe.getContext('webgl2') || probe.getContext('webgl');
+          if (!gl) return true;
+          const ext = gl.getExtension('WEBGL_debug_renderer_info');
+          const gpu = String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER) || '');
+          gl.getExtension('WEBGL_lose_context')?.loseContext();
+          return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
+        } catch {
+          return true;
+        }
+      }
+
+      const wrap = document.getElementById('canvas-wrap');
+      const statusOverlay = document.getElementById('status-overlay');
+      const isSoftwareGl = detectSoftwareWebGL();
+      let renderer;
+      try {
+        renderer = new THREE.WebGLRenderer({ antialias: !isSoftwareGl, powerPreference: 'high-performance' });
+      } catch {
+        document.getElementById('status-title').textContent = 'WebGL 渲染环境不可用';
+        document.getElementById('status-desc').textContent = '当前浏览器未开启 WebGL2 支持，请启用硬件加速后刷新页面。';
+        statusOverlay.classList.add('visible');
+        throw new Error('WebGL unavailable');
+      }
+
+      let pixelRatio = isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2);
+      renderer.setPixelRatio(pixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.12;
+      wrap.appendChild(renderer.domElement);
+
+      renderer.domElement.addEventListener('webglcontextlost', (e) => {
+        e.preventDefault();
+        statusOverlay.classList.add('visible');
+      });
+      renderer.domElement.addEventListener('webglcontextrestored', () => {
+        statusOverlay.classList.remove('visible');
+      });
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x03050c);
+      scene.fog = new THREE.FogExp2(0x03050c, 0.01);
+
+      const camera = new THREE.PerspectiveCamera(56, window.innerWidth / window.innerHeight, 0.1, 240);
+      camera.position.set(0, 3.8, 11.5);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = !isSoftwareGl;
+      controls.dampingFactor = 0.06;
+      controls.enablePan = false;
+      controls.minDistance = 4.5;
+      controls.maxDistance = 68;
+      controls.target.set(0, 0, 0);
+
+      const composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+      const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.15, 0.48, 0.22);
+      composer.addPass(bloomPass);
+      composer.addPass(new OutputPass());
+
+      let seed = 42013800;
+      const rng = () => {
+        seed += 0x6d2b79f5;
+        let t = seed;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      const unitSphere = () => {
+        const u = rng(), v = rng(), th = 2 * Math.PI * u, ph = Math.acos(2 * v - 1);
+        return [Math.sin(ph) * Math.cos(th), Math.sin(ph) * Math.sin(th), Math.cos(ph)];
+      };
+
+      const nodes = Array.from({ length: 22 }, () => {
+        const [x, y, z] = unitSphere();
+        const r = 4.6 + Math.pow(rng(), 0.72) * 14.4;
+        return [x * r, y * r * 0.76, z * r];
+      });
+      const tilts = Array.from({ length: 22 }, () => ({ ax: (rng() - 0.5) * 1.8, az: (rng() - 0.5) * 1.8 }));
+      const filaments = [];
+      for (let a = 0; a < 22; a++) {
+        const d = nodes
+          .map((n, b) => ({ b, dist: a === b ? 1e9 : Math.hypot(nodes[a][0] - n[0], nodes[a][1] - n[1], nodes[a][2] - n[2]) }))
+          .sort((u, v) => u.dist - v.dist);
+        for (let k = 0; k < 2; k++) if (a < d[k].b) filaments.push([a, d[k].b]);
+      }
+
+      const pos = new Float32Array(PARTICLE_COUNT * 3);
+      const col = new Float32Array(PARTICLE_COUNT * 3);
+      const sizes = new Float32Array(PARTICLE_COUNT);
+      const phases = new Float32Array(PARTICLE_COUNT);
+      const epPos = Array.from({ length: 6 }, () => new Float32Array(PARTICLE_COUNT * 3));
+      const epCol = Array.from({ length: 6 }, () => new Float32Array(PARTICLE_COUNT * 3));
+
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const i3 = i * 3;
+        const [ux, uy, uz] = unitSphere();
+        const cr = Math.cbrt(rng());
+        phases[i] = rng() * Math.PI * 2;
+        sizes[i] = 0.65 + Math.pow(rng(), 2.2) * 2.1;
+
+        const r1 = 0.25 + Math.pow(cr, 1.35) * 2.15;
+        epPos[0].set([ux * r1, uy * r1, uz * r1], i3);
+        const h1 = rng();
+        epCol[0].set([lerp(0.84, 1.0, h1), lerp(0.82, 0.96, h1), lerp(1.0, 0.9, h1 * 0.5)], i3);
+
+        const r2 = (1.6 + cr * 8.2) * (1 + 0.16 * Math.sin(ux * 6 + uy * 5) * Math.cos(uz * 6));
+        epPos[1].set([ux * r2, uy * r2 * 0.9, uz * r2], i3);
+        const c2 = rng();
+        epCol[1].set([lerp(0.45, 1.0, c2), lerp(0.86, 0.92, c2), lerp(1.0, 0.62, c2)], i3);
+
+        const r3 = (1.9 + cr * 10.8) * (1 + 0.14 * Math.sin(cr * Math.PI * 5.5));
+        epPos[2].set([ux * r3, uy * r3 * 0.9, uz * r3], i3);
+        const pT = 1 - cr * 0.45 + (rng() - 0.5) * 0.25;
+        epCol[2].set([Math.min(1, lerp(0.92, 1.0, pT)), Math.max(0.24, lerp(0.3, 0.78, pT)), Math.max(0.05, lerp(0.07, 0.34, pT))], i3);
+
+        const r4 = i % 3 === 0 ? 13.8 + (rng() - 0.5) * 1.4 : 2.4 + cr * 12.4;
+        epPos[3].set([ux * r4, uy * r4 * 0.94, uz * r4], i3);
+        const dip = Math.sin(ux * 3.4 + 0.5) * Math.cos(uy * 3.1) + 0.65 * Math.sin(uz * 5.2 - ux * 2.7) + 0.35 * Math.cos((ux + uy + uz) * 7.1);
+        const aniso = clamp01(0.5 + dip * 0.36);
+        epCol[3].set([lerp(0.1, 0.98, aniso), lerp(0.42, 0.58, aniso * (1 - aniso * 0.25)), lerp(0.96, 0.14, aniso)], i3);
+
+        const [na, nb] = filaments[i % filaments.length];
+        const te = rng();
+        const [jx, jy, jz] = unitSphere();
+        const js = 1.05 + rng() * 1.85;
+        epPos[4].set([
+          lerp(nodes[na][0], nodes[nb][0], te) * 0.88 + jx * js,
+          lerp(nodes[na][1], nodes[nb][1], te) * 0.88 + jy * js,
+          lerp(nodes[na][2], nodes[nb][2], te) * 0.88 + jz * js,
+        ], i3);
+        epCol[4].set(rng() > 0.84 ? [0.78, 0.92, 1.0] : [0.18, 0.14, 0.42], i3);
+
+        const role = rng();
+        if (role < 0.44) {
+          const nIdx = i % 22;
+          let lx, ly, lz;
+          if (rng() < 0.34) {
+            const [bx, by, bz] = unitSphere();
+            const br = Math.pow(rng(), 1.9) * 0.58;
+            lx = bx * br; ly = by * br * 0.55; lz = bz * br;
+          } else {
+            const arm = i % 2;
+            const radial = 0.28 + Math.pow(rng(), 1.15) * 1.85;
+            const ang = arm * Math.PI + radial * 2.9 + (rng() - 0.5) * 0.78;
+            lx = Math.cos(ang) * radial;
+            ly = (rng() - 0.5) * 0.24 * (1 - radial * 0.25);
+            lz = Math.sin(ang) * radial;
+          }
+          const { ax, az } = tilts[nIdx];
+          const y1 = ly * Math.cos(ax) - lz * Math.sin(ax);
+          const z1 = ly * Math.sin(ax) + lz * Math.cos(ax);
+          const x2 = lx * Math.cos(az) - y1 * Math.sin(az);
+          const y2 = lx * Math.sin(az) + y1 * Math.cos(az);
+          epPos[5].set([nodes[nIdx][0] * 1.18 + x2, nodes[nIdx][1] * 1.18 + y2, nodes[nIdx][2] * 1.18 + z1], i3);
+          const pop = rng();
+          epCol[5].set(pop < 0.48 ? [0.62, 0.84, 1.0] : pop < 0.85 ? [1.0, 0.88, 0.62] : [0.98, 0.52, 0.6], i3);
+        } else if (role < 0.89) {
+          const [sx, sy, sz] = unitSphere();
+          const tr = Math.pow(rng(), 1.5) * 0.78;
+          epPos[5].set([
+            lerp(nodes[na][0], nodes[nb][0], te) * 1.18 + sx * tr,
+            lerp(nodes[na][1], nodes[nb][1], te) * 1.18 + sy * tr,
+            lerp(nodes[na][2], nodes[nb][2], te) * 1.18 + sz * tr,
+          ], i3);
+          epCol[5].set([0.34, 0.45, 0.88], i3);
+        } else {
+          const rVoid = 6.5 + cr * 17.5;
+          epPos[5].set([ux * rVoid, uy * rVoid * 0.85, uz * rVoid], i3);
+          epCol[5].set([0.34, 0.45, 0.88], i3);
+        }
+      }
+
+      const geo = new THREE.BufferGeometry();
+      const posAttr = new THREE.BufferAttribute(pos, 3); posAttr.setUsage(THREE.DynamicDrawUsage);
+      const colAttr = new THREE.BufferAttribute(col, 3); colAttr.setUsage(THREE.DynamicDrawUsage);
+      geo.setAttribute('position', posAttr);
+      geo.setAttribute('aColor', colAttr);
+      geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+      geo.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
+
+      const mat = new THREE.ShaderMaterial({
+        uniforms: {
+          uTime: { value: 0 },
+          uProgress: { value: 0 },
+          uPixelRatio: { value: pixelRatio },
+          uQuantumJitter: { value: 1 },
+          uInflationStreak: { value: 0 },
+          uPlasmaSwirl: { value: 0 },
+          uPointSizeScale: { value: 1 },
+          uStarFlareMix: { value: 0 },
+        },
+        vertexShader: `
+          attribute vec3 aColor; attribute float aSize; attribute float aPhase;
+          uniform float uTime; uniform float uProgress; uniform float uPixelRatio;
+          uniform float uQuantumJitter; uniform float uInflationStreak; uniform float uPlasmaSwirl; uniform float uPointSizeScale;
+          varying vec3 vColor; varying float vAlpha; varying float vSize;
+          // === [STAGE 3: EPOCH SHADERS & TRANSITIONS] ===
+          void main() {
+            vColor = aColor; vSize = aSize; vec3 p = position;
+            float rad = max(0.1, length(p)); vec3 dir = p / rad;
+            p += vec3(sin(uTime*6.5+aPhase*3.1+p.y*4.0), cos(uTime*5.8+aPhase*2.7+p.z*4.0), sin(uTime*6.1+aPhase*3.7+p.x*4.0)) * (0.24 * uQuantumJitter);
+            p += dir * (sin(rad * 1.8 - uTime * 4.2 + aPhase) * 0.42 * uInflationStreak);
+            if (uPlasmaSwirl > 0.001) {
+              float sw = uPlasmaSwirl * (0.35 * sin(uTime * 0.9 + rad * 0.35 + aPhase));
+              p.xz = mat2(cos(sw), -sin(sw), sin(sw), cos(sw)) * p.xz;
+              p.y += sin(uTime * 1.8 + aPhase + rad * 0.5) * 0.25 * uPlasmaSwirl;
+            }
+            vec4 mv = modelViewMatrix * vec4(p, 1.0);
+            float dist = max(1.5, -mv.z);
+            gl_PointSize = clamp((aSize * uPointSizeScale * (1.0 + 0.35 * uInflationStreak) * 38.0 * uPixelRatio) / dist, 1.4, 28.0);
+            vAlpha = smoothstep(115.0, 12.0, dist) * (0.76 + 0.24 * sin(uTime * 1.4 + aPhase));
+            gl_Position = projectionMatrix * mv;
+          }
+        `,
+        fragmentShader: `
+          uniform float uPlasmaSwirl; uniform float uStarFlareMix;
+          varying vec3 vColor; varying float vAlpha; varying float vSize;
+          // === [STAGE 3: EPOCH SHADERS & TRANSITIONS] ===
+          void main() {
+            vec2 uv = gl_PointCoord - vec2(0.5);
+            float r2 = dot(uv, uv); if (r2 > 0.25) discard;
+            float radial = exp(-r2 * mix(17.0, 7.5, uPlasmaSwirl));
+            float core = exp(-r2 * 52.0) * 0.65;
+            float flare = (exp(-abs(uv.y)*32.0)*exp(-abs(uv.x)*9.0) + exp(-abs(uv.x)*32.0)*exp(-abs(uv.y)*9.0)) * 0.45 * uStarFlareMix * smoothstep(1.35, 2.5, vSize);
+            gl_FragColor = vec4(vColor * (0.95 + core * 0.8 + flare * 0.9), (radial + core + flare) * vAlpha);
+          }
+        `,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      });
+      const points = new THREE.Points(geo, mat);
+      points.frustumCulled = false;
+      scene.add(points);
+
+      // BAO Acoustic Pressure Shells (Epoch 3)
+      const baoMat = new THREE.ShaderMaterial({
+        uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
+        vertexShader: `varying vec3 vNormal; varying vec3 vViewPos; varying vec3 vObjPos; void main(){ vObjPos=position; vNormal=normalize(normalMatrix*normal); vec4 mv=modelViewMatrix*vec4(position,1.0); vViewPos=-mv.xyz; gl_Position=projectionMatrix*mv; }`,
+        fragmentShader: `
+          uniform float uTime; uniform float uOpacity; varying vec3 vNormal; varying vec3 vViewPos; varying vec3 vObjPos;
+          void main(){
+            float rim = pow(1.0 - abs(dot(normalize(vViewPos), normalize(vNormal))), 2.2);
+            float ripple = 0.6 + 0.4 * sin(vObjPos.y * 2.4 - uTime * 2.2 + vObjPos.x * 1.4);
+            gl_FragColor = vec4(mix(vec3(0.95,0.42,0.12), vec3(1.0,0.82,0.35), ripple), rim * ripple * uOpacity * 0.42);
+          }
+        `,
+        transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+      });
+      const baoShell1 = new THREE.Mesh(new THREE.SphereGeometry(7.2, 36, 36), baoMat);
+      const baoShell2 = new THREE.Mesh(new THREE.SphereGeometry(11.4, 36, 36), baoMat);
+      scene.add(baoShell1);
+      scene.add(baoShell2);
+
+      // CMB Anisotropy Shell (Epoch 4)
+      const cmbMat = new THREE.ShaderMaterial({
+        uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
+        vertexShader: `varying vec3 vDir; varying vec3 vNormal; varying vec3 vViewPos; void main(){ vDir=normalize(position); vNormal=normalize(normalMatrix*normal); vec4 mv=modelViewMatrix*vec4(position,1.0); vViewPos=-mv.xyz; gl_Position=projectionMatrix*mv; }`,
+        fragmentShader: `
+          uniform float uTime; uniform float uOpacity; varying vec3 vDir; varying vec3 vNormal; varying vec3 vViewPos;
+          float h3(vec3 p){ p=fract(p*0.3183099+vec3(0.1,0.2,0.3))*17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+          float n3(vec3 x){ vec3 i=floor(x),f=fract(x); f=f*f*(3.0-2.0*f); return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z); }
+          void main(){
+            vec3 p = vDir*3.8 + vec3(uTime*0.015, 0.0, -uTime*0.01);
+            float v = 0.5*n3(p) + 0.25*n3(p*2.15+1.7) + 0.125*n3(p*4.5+3.4);
+            float c = smoothstep(0.28, 0.72, v);
+            vec3 col = mix(mix(vec3(0.08,0.36,0.92), vec3(0.16,0.65,0.74), smoothstep(0.0,0.48,c)), vec3(0.98,0.44,0.12), smoothstep(0.48,1.0,c));
+            float rim = 0.45 + 0.55 * pow(1.0 - abs(dot(normalize(vViewPos), normalize(vNormal))), 1.5);
+            gl_FragColor = vec4(col, uOpacity * rim * 0.46);
+          }
+        `,
+        transparent: true, depthWrite: false, side: THREE.BackSide, blending: THREE.AdditiveBlending,
+      });
+      const cmbShell = new THREE.Mesh(new THREE.SphereGeometry(21, 48, 48), cmbMat);
+      scene.add(cmbShell);
+
+      // Dark Matter Potential Filaments (Epoch 5)
+      const dmVerts = new Float32Array(filaments.length * 6);
+      filaments.forEach(([a, b], i) => dmVerts.set([nodes[a][0]*1.05, nodes[a][1]*1.05, nodes[a][2]*1.05, nodes[b][0]*1.05, nodes[b][1]*1.05, nodes[b][2]*1.05], i * 6));
+      const dmGeo = new THREE.BufferGeometry(); dmGeo.setAttribute('position', new THREE.BufferAttribute(dmVerts, 3));
+      const dmMat = new THREE.LineBasicMaterial({ color: 0x7c3aed, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+      const dmLines = new THREE.LineSegments(dmGeo, dmMat);
+      scene.add(dmLines);
+
+      // Background Deep-Space Stardust
+      const bgCount = isSoftwareGl ? 900 : 1600;
+      const bgPos = new Float32Array(bgCount * 3), bgCol = new Float32Array(bgCount * 3), bgSizes = new Float32Array(bgCount);
+      for (let i = 0; i < bgCount; i++) {
+        const [ux, uy, uz] = unitSphere();
+        const r = 38 + rng() * 52;
+        bgPos.set([ux * r, uy * r, uz * r], i * 3);
+        const t = rng();
+        bgCol.set([lerp(0.58, 0.92, t), lerp(0.68, 0.94, t), lerp(0.88, 1.0, t * 0.7)], i * 3);
+        bgSizes[i] = 0.5 + rng() * 1.4;
+      }
+      const starGeo = new THREE.BufferGeometry();
+      starGeo.setAttribute('position', new THREE.BufferAttribute(bgPos, 3));
+      starGeo.setAttribute('aColor', new THREE.BufferAttribute(bgCol, 3));
+      starGeo.setAttribute('aSize', new THREE.BufferAttribute(bgSizes, 1));
+      const starMat = new THREE.ShaderMaterial({
+        uniforms: { uPixelRatio: { value: pixelRatio }, uOpacity: { value: 0.45 } },
+        vertexShader: `attribute vec3 aColor; attribute float aSize; uniform float uPixelRatio; varying vec3 vColor; void main(){ vColor=aColor; vec4 mv=modelViewMatrix*vec4(position,1.0); gl_PointSize=clamp((aSize*28.0*uPixelRatio)/max(10.0,-mv.z),1.0,5.0); gl_Position=projectionMatrix*mv; }`,
+        fragmentShader: `uniform float uOpacity; varying vec3 vColor; void main(){ vec2 uv=gl_PointCoord-vec2(0.5); float r2=dot(uv,uv); if(r2>0.25)discard; gl_FragColor=vec4(vColor, exp(-r2*18.0)*uOpacity); }`,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      });
+      const bgStars = new THREE.Points(starGeo, starMat);
+      scene.add(bgStars);
+
+      // Soft Radial Central Energy Core (Epochs 1-3)
+      const coreGroup = new THREE.Group();
+      const innerCoreMat = new THREE.ShaderMaterial({
+        uniforms: { uOpacity: { value: 0.85 } },
+        vertexShader: `varying vec3 vNormal; varying vec3 vViewPos; void main(){ vNormal=normalize(normalMatrix*normal); vec4 mv=modelViewMatrix*vec4(position,1.0); vViewPos=-mv.xyz; gl_Position=projectionMatrix*mv; }`,
+        fragmentShader: `uniform float uOpacity; varying vec3 vNormal; varying vec3 vViewPos; void main(){ float g=pow(max(0.0,dot(normalize(vViewPos),normalize(vNormal))),2.2); gl_FragColor=vec4(mix(vec3(0.98,0.72,0.35),vec3(1.0,0.98,0.92),g), g*uOpacity); }`,
+        transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+      });
+      const innerCoreGeo = new THREE.SphereGeometry(1.1, 28, 28);
+      coreGroup.add(new THREE.Mesh(innerCoreGeo, innerCoreMat));
+
+      const coronaMat = new THREE.ShaderMaterial({
+        uniforms: { uOpacity: { value: 0.42 } },
+        vertexShader: `varying vec3 vNormal; varying vec3 vViewPos; void main(){ vNormal=normalize(normalMatrix*normal); vec4 mv=modelViewMatrix*vec4(position,1.0); vViewPos=-mv.xyz; gl_Position=projectionMatrix*mv; }`,
+        fragmentShader: `uniform float uOpacity; varying vec3 vNormal; varying vec3 vViewPos; void main(){ float g=pow(max(0.0,dot(normalize(vViewPos),normalize(vNormal))),2.8); gl_FragColor=vec4(vec3(0.38,0.68,1.0), g*uOpacity); }`,
+        transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+      });
+      const coronaGeo = new THREE.SphereGeometry(2.1, 28, 28);
+      coreGroup.add(new THREE.Mesh(coronaGeo, coronaMat));
+
+      const haloGeo = new THREE.RingGeometry(1.9, 2.35, 64);
+      const haloMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.22, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+      const haloRing = new THREE.Mesh(haloGeo, haloMat);
+      haloRing.rotation.x = Math.PI * 0.42;
+      coreGroup.add(haloRing);
+      scene.add(coreGroup);
+
+      // Comoving Spacetime Metric Lattice
+      const gridCoords = [];
+      for (let x = -12; x <= 12; x += 4) for (let y = -12; y <= 12; y += 4) gridCoords.push(x, y, -12, x, y, 12, x, -12, y, x, 12, y, -12, x, y, 12, x, y);
+      const gridGeo = new THREE.BufferGeometry(); gridGeo.setAttribute('position', new THREE.Float32BufferAttribute(gridCoords, 3));
+      const gridMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.1, depthWrite: false });
+      const gridMesh = new THREE.LineSegments(gridGeo, gridMat);
+      scene.add(gridMesh);
+
+      // Interactive Celestial Hotspots
+      const ringGeo = new THREE.RingGeometry(0.46, 0.58, 32);
+      const dotGeo = new THREE.SphereGeometry(0.16, 12, 12);
+      const proxyGeo = new THREE.SphereGeometry(1.35, 10, 10);
+      const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
+      const hotspotEntries = HOTSPOTS.map((hs) => {
+        const g = new THREE.Group();
+        const rMat = new THREE.MeshBasicMaterial({ color: hs.hex, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+        g.add(new THREE.Mesh(ringGeo, rMat));
+        const dMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending });
+        g.add(new THREE.Mesh(dotGeo, dMat));
+        const proxy = new THREE.Mesh(proxyGeo, proxyMat);
+        proxy.userData.hs = hs; g.add(proxy); scene.add(g);
+        return { hs, g, rMat, dMat, proxy };
+      });
+
+      let progress = 0, isPlaying = true, showGrid = true, showHotspots = true, cameraMode = 'cruise', collapsed = false;
+      let timeSec = 0, lastMs = performance.now(), lastAppliedProgress = -1, lastHudEpochId = -1;
+      let hoveredHs = null, selectedHs = null;
+
+      controls.addEventListener('start', () => {
+        if (cameraMode === 'cruise') { cameraMode = 'free'; syncModeButtons(); }
+      });
+
+      // Zero-GC throttled raycasting
+      const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2(), visibleProxies = [];
+      let lastRaycastMs = 0, downPos = { x: 0, y: 0 };
+      const pick = (cx, cy) => {
+        if (!showHotspots) return null;
+        const rect = renderer.domElement.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return null;
+        ndc.set(((cx - rect.left) / rect.width) * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1);
+        raycaster.setFromCamera(ndc, camera);
+        visibleProxies.length = 0;
+        for (let i = 0; i < hotspotEntries.length; i++) {
+          if (hotspotEntries[i].g.visible) visibleProxies.push(hotspotEntries[i].proxy);
+        }
+        if (visibleProxies.length === 0) return null;
+        const hits = raycaster.intersectObjects(visibleProxies, false);
+        return hits.length ? hits[0].object.userData.hs : null;
+      };
+      renderer.domElement.addEventListener('pointermove', (e) => {
+        const now = performance.now();
+        if (now - lastRaycastMs < 45) return;
+        lastRaycastMs = now;
+        const hit = pick(e.clientX, e.clientY);
+        if ((hit?.id || null) !== (hoveredHs?.id || null)) {
+          hoveredHs = hit;
+          wrap.classList.toggle('pointer', !!hoveredHs);
+          updateHotspotCard();
+        }
+      });
+      renderer.domElement.addEventListener('pointerdown', (e) => { downPos = { x: e.clientX, y: e.clientY }; });
+      renderer.domElement.addEventListener('pointerup', (e) => {
+        if (Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 6) return;
+        const h = pick(e.clientX, e.clientY);
+        selectedHs = h ? (selectedHs?.id === h.id ? null : h) : null;
+        updateHotspotCard();
+      });
+
+      const slider = document.getElementById('timeline-slider');
+      const anchorsWrap = document.getElementById('epoch-anchors');
+      const anchorBtns = EPOCHS.map((ep) => {
+        const b = document.createElement('button');
+        b.textContent = ep.short;
+        b.onclick = () => { progress = clamp01(ep.anchor); selectedHs = null; hoveredHs = null; wrap.classList.remove('pointer'); updateHUD(); };
+        anchorsWrap.appendChild(b);
+        return b;
+      });
+      function syncModeButtons() {
+        document.getElementById('btn-cruise').classList.toggle('active', cameraMode === 'cruise');
+        document.getElementById('btn-free').classList.toggle('active', cameraMode === 'free');
+      }
+      document.getElementById('btn-play').onclick = (e) => {
+        if (!isPlaying && progress >= 0.999) progress = 0;
+        isPlaying = !isPlaying;
+        e.target.textContent = isPlaying ? '暂停演化' : '播放演化';
+        updateHUD();
+      };
+      document.getElementById('btn-reset').onclick = () => {
+        progress = 0; isPlaying = true; selectedHs = null; hoveredHs = null; wrap.classList.remove('pointer');
+        document.getElementById('btn-play').textContent = '暂停演化';
+        updateHUD();
+      };
+      document.getElementById('btn-cruise').onclick = () => { cameraMode = 'cruise'; syncModeButtons(); };
+      document.getElementById('btn-free').onclick = () => { cameraMode = 'free'; syncModeButtons(); };
+      document.getElementById('btn-hotspots').onclick = (e) => {
+        showHotspots = !showHotspots;
+        if (!showHotspots) { selectedHs = null; hoveredHs = null; wrap.classList.remove('pointer'); }
+        e.target.classList.toggle('amber-active', showHotspots);
+        updateHUD();
+      };
+      document.getElementById('btn-grid').onclick = (e) => { showGrid = !showGrid; e.target.classList.toggle('active', showGrid); };
+      document.getElementById('hs-close').onclick = () => { selectedHs = null; updateHotspotCard(); };
+      document.getElementById('btn-collapse').onclick = (e) => {
+        collapsed = !collapsed;
+        document.getElementById('dock-panel').classList.toggle('hidden', collapsed);
+        document.getElementById('info-extra').style.display = collapsed ? 'none' : 'block';
+        e.target.textContent = collapsed ? '展开控制栏' : '收起控制栏';
+        e.target.setAttribute('aria-expanded', String(!collapsed));
+      };
+      slider.oninput = (e) => { progress = clamp01(parseFloat(e.target.value)); selectedHs = null; hoveredHs = null; updateHUD(); };
+
+      function updateHotspotCard() {
+        const ep = getEpochForProgress(progress);
+        const raw = selectedHs || hoveredHs;
+        const hs = raw && showHotspots && raw.epochId === ep.id ? raw : null;
+        const card = document.getElementById('hotspot-card');
+        card.classList.toggle('visible', !!hs);
+        if (!hs) return;
+        document.getElementById('hs-cat').textContent = hs.cat;
+        document.getElementById('hs-title').textContent = hs.title;
+        document.getElementById('hs-desc').textContent = hs.desc;
+        document.getElementById('hs-close').style.display = selectedHs ? 'inline-block' : 'none';
+      }
+
+      function updateHUD() {
+        const tel = computeTelemetry(progress);
+        const ep = tel.epoch;
+        document.getElementById('hud-step').textContent = `纪元 0${ep.id} / 06`;
+        document.getElementById('hud-title').textContent = ep.title;
+        document.getElementById('hud-en').textContent = ep.en;
+        document.getElementById('hud-time').textContent = tel.timeLabel;
+        document.getElementById('hud-temp').textContent = tel.tempLabel;
+        document.getElementById('hud-z').textContent = tel.redshiftLabel;
+        document.getElementById('hud-scale').textContent = `a ≈ ${tel.scale.toFixed(2)}`;
+        document.getElementById('hud-summary').textContent = ep.summary;
+        document.getElementById('hud-approx').textContent = ep.approx;
+        document.getElementById('hud-pct').textContent = `${(progress * 100).toFixed(1)}%`;
+        slider.value = String(progress);
+        anchorBtns.forEach((b, i) => b.classList.toggle('active', EPOCHS[i].id === ep.id));
+
+        if (lastHudEpochId !== ep.id) {
+          lastHudEpochId = ep.id;
+          if (hoveredHs && hoveredHs.epochId !== ep.id) { hoveredHs = null; wrap.classList.remove('pointer'); }
+          if (selectedHs && selectedHs.epochId !== ep.id) selectedHs = null;
+        }
+
+        const chips = document.getElementById('hotspot-chips');
+        chips.innerHTML = '';
+        if (showHotspots) {
+          HOTSPOTS.filter((h) => h.epochId === ep.id).forEach((h) => {
+            const b = document.createElement('button');
+            b.textContent = h.title;
+            if (selectedHs?.id === h.id) b.className = 'amber-active';
+            b.onclick = () => { selectedHs = selectedHs?.id === h.id ? null : h; updateHUD(); };
+            chips.appendChild(b);
+          });
+        }
+        updateHotspotCard();
+      }
+      updateHUD();
+
+      const handleResize = () => {
+        const w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
+        pixelRatio = isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setPixelRatio(pixelRatio);
+        renderer.setSize(w, h);
+        composer.setSize(w, h);
+        bloomPass.resolution.set(w, h);
+        mat.uniforms.uPixelRatio.value = pixelRatio;
+        starMat.uniforms.uPixelRatio.value = pixelRatio;
+      };
+      window.addEventListener('resize', handleResize);
+
+      let frameId = 0, disposed = false;
+      function afterDraw(cb) {
+        const gl = renderer.getContext();
+        if (!gl || typeof gl.fenceSync !== 'function') { frameId = window.setTimeout(cb, 80); return; }
+        const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+        gl.flush();
+        const poll = () => {
+          if (disposed) { if (sync) gl.deleteSync(sync); return; }
+          const st = sync ? gl.getSyncParameter(sync, gl.SYNC_STATUS) : gl.SIGNALED;
+          if (st === gl.UNSIGNALED) frameId = window.setTimeout(poll, 5);
+          else { if (sync) gl.deleteSync(sync); frameId = window.setTimeout(cb, 80); }
+        };
+        frameId = window.setTimeout(poll, 5);
+      }
+
+      function applyState(p, tSec, dt) {
+        const cp = clamp01(p);
+        if (Math.abs(cp - lastAppliedProgress) > 1e-4) {
+          const w = getEpochWeights(cp);
+          for (let k = 0; k < PARTICLE_COUNT * 3; k++) {
+            pos[k] = epPos[0][k]*w[0] + epPos[1][k]*w[1] + epPos[2][k]*w[2] + epPos[3][k]*w[3] + epPos[4][k]*w[4] + epPos[5][k]*w[5];
+            col[k] = epCol[0][k]*w[0] + epCol[1][k]*w[1] + epCol[2][k]*w[2] + epCol[3][k]*w[3] + epCol[4][k]*w[4] + epCol[5][k]*w[5];
+          }
+          posAttr.needsUpdate = true;
+          colAttr.needsUpdate = true;
+          lastAppliedProgress = cp;
+        }
+
+        const qJit = 1 - smoothstep(0.06, 0.24, cp);
+        const infS = smoothstep(0.1, 0.16, cp) * (1 - smoothstep(0.24, 0.34, cp));
+        const plSw = smoothstep(0.22, 0.3, cp) * (1 - smoothstep(0.42, 0.54, cp));
+        const baoOp = smoothstep(0.25, 0.33, cp) * (1 - smoothstep(0.43, 0.53, cp));
+        const cmbOp = smoothstep(0.41, 0.49, cp) * (1 - smoothstep(0.6, 0.69, cp));
+        const dmOp = smoothstep(0.58, 0.67, cp) * (1 - smoothstep(0.84, 0.96, cp));
+        const flMix = smoothstep(0.64, 0.74, cp);
+
+        mat.uniforms.uTime.value = tSec; mat.uniforms.uProgress.value = cp;
+        mat.uniforms.uQuantumJitter.value = qJit; mat.uniforms.uInflationStreak.value = infS;
+        mat.uniforms.uPlasmaSwirl.value = plSw; mat.uniforms.uPointSizeScale.value = 1.05 + 0.72 * plSw - 0.22 * smoothstep(0.6, 0.95, cp);
+        mat.uniforms.uStarFlareMix.value = flMix;
+
+        bloomPass.strength = Math.max(0.65, Math.min(1.75, 1.55*(1-smoothstep(0.12,0.3,cp)) + 1.22*plSw + 0.72*cmbOp + 0.96*flMix));
+        bloomPass.threshold = lerp(0.16, 0.32, smoothstep(0.25, 0.75, cp));
+        bloomPass.radius = lerp(0.62, 0.38, smoothstep(0.2, 0.85, cp));
+
+        const tel = computeTelemetry(cp);
+        baoShell1.visible = baoOp > 0.01; baoShell2.visible = baoOp > 0.01;
+        baoMat.uniforms.uTime.value = tSec; baoMat.uniforms.uOpacity.value = baoOp;
+        if (baoShell1.visible) {
+          const bs = 0.8 + tel.scale * 0.45;
+          baoShell1.scale.setScalar(bs);
+          baoShell2.scale.setScalar(bs * 1.12);
+        }
+
+        cmbShell.visible = cmbOp > 0.01; cmbMat.uniforms.uTime.value = tSec; cmbMat.uniforms.uOpacity.value = cmbOp;
+        dmLines.visible = dmOp > 0.01; dmMat.opacity = dmOp * 0.34; dmLines.rotation.y = tSec * 0.014;
+        points.rotation.y = tSec * 0.014;
+        bgStars.rotation.y = tSec * 0.008;
+
+        gridMesh.visible = showGrid;
+        gridMesh.scale.setScalar(tel.scale * 1.15);
+        gridMat.opacity = 0.065 + 0.075 * (1 - cp * 0.45);
+
+        const coreVis = 1 - smoothstep(0.26, 0.46, cp);
+        coreGroup.visible = coreVis > 0.01;
+        if (coreGroup.visible) {
+          const pulse = 1 + 0.08 * Math.sin(tSec * 3.1);
+          coreGroup.scale.setScalar((0.55 + tel.scale * 0.65) * pulse);
+          innerCoreMat.uniforms.uOpacity.value = 0.85 * coreVis;
+          coronaMat.uniforms.uOpacity.value = 0.42 * coreVis;
+          haloMat.opacity = 0.22 * coreVis;
+          haloRing.rotation.z = tSec * 0.35;
+        }
+
+        const rotY = tSec * 0.014, cs = Math.cos(rotY), sn = Math.sin(rotY);
+        hotspotEntries.forEach((e) => {
+          e.g.visible = showHotspots && e.hs.epochId === tel.epoch.id;
+          if (!e.g.visible) return;
+          const s = e.hs.scaleMetric ? 0.55 + tel.scale * 0.55 : 1.0;
+          const wx = e.hs.pos[0] * s, wy = e.hs.pos[1] * s, wz = e.hs.pos[2] * s;
+          e.g.position.set(wx * cs + wz * sn, wy, -wx * sn + wz * cs);
+          e.g.quaternion.copy(camera.quaternion);
+          const hi = selectedHs?.id === e.hs.id || hoveredHs?.id === e.hs.id;
+          e.g.scale.setScalar(hi ? 1.45 : 1.0 + 0.08 * Math.sin(tSec * 2.5));
+          e.rMat.opacity = hi ? 1.0 : 0.75;
+          e.dMat.opacity = hi ? 1.0 : 0.85;
+        });
+
+        if (cameraMode === 'cruise') {
+          const rad = 11.5 + 8.5 * smoothstep(0.1, 0.28, cp) + 6.5 * smoothstep(0.28, 0.62, cp) + 5.5 * smoothstep(0.62, 1.0, cp);
+          const ang = cp * Math.PI * 1.45 + tSec * 0.055;
+          const ty = Math.max(-14, Math.min(18, 2.6 + 3.4 * Math.sin(cp * Math.PI * 1.3 + 0.4) + 1.2 * Math.cos(tSec * 0.14)));
+          const lam = isSoftwareGl ? 10 : 2.6;
+          camera.position.x = THREE.MathUtils.damp(camera.position.x, Math.sin(ang) * rad, lam, dt);
+          camera.position.y = THREE.MathUtils.damp(camera.position.y, ty, lam, dt);
+          camera.position.z = THREE.MathUtils.damp(camera.position.z, Math.cos(ang) * rad, lam, dt);
+          controls.target.x = THREE.MathUtils.damp(controls.target.x, 0, lam, dt);
+          controls.target.y = THREE.MathUtils.damp(controls.target.y, 0, lam, dt);
+          controls.target.z = THREE.MathUtils.damp(controls.target.z, 0, lam, dt);
+        }
+      }
+
+      applyState(0, 0, 0.016);
+
+      function animate() {
+        if (disposed) return;
+        const now = performance.now();
+        const dt = Math.max(0.001, Math.min(0.05, (now - lastMs) / 1000));
+        lastMs = now;
+        timeSec += dt;
+
+        if (isPlaying) {
+          progress = clamp01(progress + dt / 52);
+          if (progress >= 1) {
+            progress = 1;
+            isPlaying = false;
+            document.getElementById('btn-play').textContent = '播放演化';
+          }
+          updateHUD();
+        }
+        applyState(progress, timeSec, dt);
+        controls.update();
+
+        if (isSoftwareGl) {
+          renderer.render(scene, camera);
+          afterDraw(animate);
+        } else {
+          composer.render();
+          frameId = window.requestAnimationFrame(animate);
+        }
+      }
+
+      if (isSoftwareGl) {
+        renderer.render(scene, camera);
+        afterDraw(animate);
+      } else {
+        frameId = window.requestAnimationFrame(animate);
+      }
+
+      window.addEventListener('beforeunload', () => {
+        disposed = true;
+        window.cancelAnimationFrame(frameId);
+        window.clearTimeout(frameId);
+        window.removeEventListener('resize', handleResize);
+        controls.dispose();
+        geo.dispose(); mat.dispose();
+        baoShell1.geometry.dispose(); baoShell2.geometry.dispose(); baoMat.dispose();
+        cmbShell.geometry.dispose(); cmbMat.dispose();
+        dmGeo.dispose(); dmMat.dispose();
+        starGeo.dispose(); starMat.dispose();
+        innerCoreGeo.dispose(); innerCoreMat.dispose();
+        coronaGeo.dispose(); coronaMat.dispose();
+        haloGeo.dispose(); haloMat.dispose();
+        gridGeo.dispose(); gridMat.dispose();
+        ringGeo.dispose(); dotGeo.dispose(); proxyGeo.dispose(); proxyMat.dispose();
+        hotspotEntries.forEach((e) => { e.rMat.dispose(); e.dMat.dispose(); });
+        composer.dispose(); renderer.dispose();
+      });
+    </script>
+  </body>
+</html>
